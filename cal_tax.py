@@ -17,10 +17,10 @@ def compute_allocation(total_expense,
     weights = {
         "Food, Clothing and Other Essentials": 30.0,
         "Accommodation Expense": 28.0,
-        "Electricity": 4.0,
+        "Electricity": 2.5,
         "Gas, Water, Sewer and Garbage": 3.0,
-        "Phone, Internet, TV channels & Subscriptions": 3.0,
-        "Home-Support Staff and Other Expenses": 6.0,
+        "Phone, Internet, TV channels & Subscriptions": 3.5,
+        "Home-Support Staff and Other Expenses": 7.0,
         "Education Expenses (for kids)": 10.0,
         "Festival, Party, Events": 6.0
     }
