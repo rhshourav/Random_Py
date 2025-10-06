@@ -19,10 +19,10 @@ def compute_allocation(total_expense,
         "Accommodation Expense": 28.0,
         "Electricity": 4.0,
         "Gas, Water, Sewer and Garbage": 3.0,
-        "Phone, Internet, TV channels & Subscriptions": 4.0,
+        "Phone, Internet, TV channels & Subscriptions": 3.0,
         "Home-Support Staff and Other Expenses": 6.0,
         "Education Expenses (for kids)": 10.0,
-        "Festival, Party, Events": 5.0
+        "Festival, Party, Events": 6.0
     }
 
     # Remove education if no kids
