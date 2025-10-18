@@ -1,7 +1,7 @@
 # it10bb_smart_estimator.py
 # Smart rough estimator for IT-10BB expense sections (Bangladesh).
 # Inputs: total annual expense (BDT), location (dhaka/other), family size, has_kids, own_home, home_support_staff, mode.
-# Output: percentage + amount per IT-10BB section (rounded).
+# Output: whole number percentage + amount per IT-10BB section (100% accurate totals)
 
 def compute_allocation(total_expense,
                        location='other_area',
@@ -13,7 +13,6 @@ def compute_allocation(total_expense,
     """
     mode: 'balanced' (default), 'conservative' (cut festival/home support), 'comfortable' (more festival/home support)
     """
-    # Base heuristic weights (intuitive starting point)
     weights = {
         "Food, Clothing and Other Essentials": 30.0,
         "Accommodation Expense": 28.0,
@@ -25,39 +24,31 @@ def compute_allocation(total_expense,
         "Festival, Party, Events": 6.0
     }
 
-    # Remove education if no kids
     if not has_kids:
         weights["Education Expenses (for kids)"] = 0.0
 
-    # Location modifiers
     loc = location.strip().lower()
     if loc in ('dhaka', 'dhaka_city', 'city', 'big_city', 'metro'):
-        # Dhaka = higher rent + slightly higher living costs
         weights["Accommodation Expense"] *= 1.20
         weights["Food, Clothing and Other Essentials"] *= 1.05
         weights["Phone, Internet, TV channels & Subscriptions"] *= 1.05
         weights["Home-Support Staff and Other Expenses"] *= 1.10
     else:
-        # smaller towns: slightly lower accommodation
         weights["Accommodation Expense"] *= 0.90
 
-    # Family size effect: every additional person above 2 increases food & education demand
     extra_people = max(0, int(family_size) - 2)
     if extra_people > 0:
         weights["Food, Clothing and Other Essentials"] *= (1 + 0.05 * extra_people)
         if has_kids:
             weights["Education Expenses (for kids)"] *= (1 + 0.04 * extra_people)
 
-    # Own home: typically less rent, some maintenance still exists
     if own_home:
         weights["Accommodation Expense"] *= 0.60
         weights["Home-Support Staff and Other Expenses"] *= 1.05
 
-    # Home support presence
     if not home_support_staff:
         weights["Home-Support Staff and Other Expenses"] *= 0.4
 
-    # Mode tweaks
     if mode == 'conservative':
         weights["Festival, Party, Events"] *= 0.6
         weights["Home-Support Staff and Other Expenses"] *= 0.7
@@ -66,32 +57,58 @@ def compute_allocation(total_expense,
         weights["Festival, Party, Events"] *= 1.3
         weights["Home-Support Staff and Other Expenses"] *= 1.2
         weights["Food, Clothing and Other Essentials"] *= 1.05
-    # else 'balanced' -> no extra change
 
-    # Normalize to 100% across included categories
+    # Normalize to raw percentage
     total_weight = sum([w for w in weights.values() if w > 0])
-    percentages = {}
-    for k, w in weights.items():
-        percentages[k] = round((w / total_weight) * 100.0, 2) if w > 0 else 0.0
+    raw_percentages = {k: (w / total_weight) * 100.0 if w > 0 else 0.0 for k, w in weights.items()}
 
-    # Fix tiny rounding drift by adjusting the largest category
-    drift = round(100.0 - sum(percentages.values()), 2)
-    if abs(drift) >= 0.01:
-        largest = max(percentages, key=lambda k: percentages[k])
-        percentages[largest] = round(percentages[largest] + drift, 2)
+    # Convert to integer percentages with remainders
+    int_percentages = {}
+    remainders = []
+    for k, p in raw_percentages.items():
+        ip = int(p)
+        int_percentages[k] = ip
+        remainders.append((p - ip, k))
 
-    # Compute amounts
-    amounts = {k: round(total_expense * (percentages[k] / 100.0), 2) for k in percentages}
+    # Distribute remaining percent to top categories by remainder
+    current_total = sum(int_percentages.values())
+    missing = 100 - current_total
+    if missing > 0:
+        remainders.sort(reverse=True)
+        for i in range(missing):
+            _, key = remainders[i]
+            int_percentages[key] += 1
 
-    return percentages, amounts
+    # Now compute integer amounts (Tk) and fix drift
+    int_amounts = {}
+    raw_amounts = {}
+    total_allocated = 0
+    remainder_amounts = []
+    for k in int_percentages:
+        amt_raw = total_expense * int_percentages[k] / 100
+        amt_int = int(amt_raw)
+        int_amounts[k] = amt_int
+        total_allocated += amt_int
+        raw_amounts[k] = amt_raw
+        remainder_amounts.append((amt_raw - amt_int, k))
+
+    # Fix any leftover amount due to rounding
+    remaining_bdt = int(round(total_expense - total_allocated))
+    if remaining_bdt > 0:
+        remainder_amounts.sort(reverse=True)
+        for i in range(remaining_bdt):
+            _, key = remainder_amounts[i]
+            int_amounts[key] += 1
+
+    return int_percentages, int_amounts
 
 
 def print_breakdown(percentages, amounts, total_expense):
     print("\n======= IT-10BB Rough Expense Breakdown =======")
     for k in percentages:
-        print(f"{k:<45} : {percentages[k]:6.2f}% | Tk {amounts[k]:,.2f}")
+        print(f"{k:<45} : {percentages[k]:3d}% | Tk {amounts[k]:,}")
     print("------------------------------------------------")
-    print(f"{'TOTAL':<45} : {sum(percentages.values()):6.2f}% | Tk {total_expense:,.2f}")
+    print(f"{'TOTAL':<45} : {sum(percentages.values()):3d}% | Tk {sum(amounts.values()):,}")
     print("================================================\n")
 
 
